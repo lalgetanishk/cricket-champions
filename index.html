@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#071626">
+<title>Cricket Champions 4.0</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#071626;font-family:Arial,sans-serif;touch-action:none}
+#wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+canvas{display:block;width:min(100vw,150vh);height:min(100vh,66.6667vw);max-width:100vw;max-height:100vh;object-fit:contain;touch-action:none}
+</style>
+</head>
+<body><div id="wrap"><canvas id="game" width="900" height="600"></canvas></div>
+<script>
+(() => {
+"use strict";
+const c=document.getElementById("game"),ctx=c.getContext("2d");
+const W=900,H=600;
+const C={white:"#fff",green:"#237337",gold:"#ffcd37",red:"#d22d2d",dark:"#08231c",skin:"#ebaf7d",pitch:"#be9b6e"};
+let state="menu",score=0,wickets=0,balls=0,high=0,target=30,px=450,bx=450,by=165,speed=5,ballState="delivery",svx=0,svy=0,shotDir="STRAIGHT",message="GET READY!",swing=0,frame=0,particles=[],celebrate=0,celebrateText="",last=0,pausedFrom="playing";
+const rects={left:{x:35,y:510,w:100,h:65},right:{x:150,y:510,w:100,h:65},hit:{x:680,y:500,w:180,h:80},pause:{x:790,y:20,w:75,h:45},play:{x:310,y:390,w:280,h:65},dl:{x:300,y:510,w:105,h:48},ds:{x:415,y:510,w:125,h:48},dr:{x:550,y:510,w:105,h:48}};
+function text(t,size,color,x,y,center=true,weight="normal"){ctx.fillStyle=color;ctx.font=weight+" "+size+"px Arial";ctx.textAlign=center?"center":"left";ctx.textBaseline="middle";ctx.fillText(t,x,y)}
+function box(x,y,w,h,color,r=0,stroke=null,lw=2){ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}}
+function line(x1,y1,x2,y2,color,width=3){ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke()}
+function circle(x,y,r,color,stroke=null){ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke()}}
+function ellipse(x,y,rx,ry,color,stroke=null,lw=2){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}}
+function resetBall(){bx=405+Math.random()*90;by=165;speed=balls<6?5:7;ballState="delivery"}
+function resetMatch(){score=0;wickets=0;balls=0;px=450;message="NEW INNINGS!";resetBall();state="playing";particles=[];celebrate=0}
+function finish(){high=Math.max(high,score);state="gameover";message=score>=target?"YOU WIN!":"YOU LOSE!"}
+function miss(){wickets++;balls++;message="BOWLED! WICKET!";if(wickets>=3||balls>=12||score>=target)finish();else resetBall()}
+function confetti(label){celebrateText=label;celebrate=90;particles=[];for(let i=0;i<65;i++)particles.push({x:250+Math.random()*400,y:170+Math.random()*160,vx:Math.random()*8-4,vy:-7-Math.random()*5,life:35+Math.random()*40,size:3+Math.random()*4,color:["#ffcd37","#fff","#d22d2d","#46d278","#4696ff"][i%5]})}
+function hit(){if(state!=="playing"||ballState!=="delivery"||by<320||by>420||Math.abs(bx-px)>=100)return;let timing=Math.abs(by-385)+Math.abs(bx-px)*.65;let runs=timing<20?6:timing<35?4:timing<45?3:timing<55?2:timing<70?1:0;score+=runs;ballState="shot";svx=shotDir==="LEFT"?-(7+Math.random()*3):shotDir==="RIGHT"?7+Math.random()*3:(Math.random()<.5?-1:1)*(1+Math.random());svy=-(8+Math.random()*4);swing=8;message=runs===6?"SIX! AMAZING SHOT!":runs===4?"FOUR! BOUNDARY!":runs===0?"DOT BALL!":runs+" RUNS!";if(runs===6||runs===4)confetti(runs===6?"SIX!!!":"FOUR!!!")}
+function handle(x,y){
+ if(state==="menu"||state==="gameover"){resetMatch();return}
+ if(state==="paused"){state="playing";return}
+ if(inside(rects.pause,x,y)){state="paused";return}
+ if(inside(rects.left,x,y))px-=35;else if(inside(rects.right,x,y))px+=35;
+ else if(inside(rects.dl,x,y))shotDir="LEFT";else if(inside(rects.ds,x,y))shotDir="STRAIGHT";else if(inside(rects.dr,x,y))shotDir="RIGHT";else if(inside(rects.hit,x,y))hit();
+ px=Math.max(355,Math.min(545,px))
+}
+function inside(r,x,y){return x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h}
+function coords(e){let r=c.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+c.addEventListener("pointerdown",e=>{e.preventDefault();let p=coords(e);handle(p.x,p.y)});
+window.addEventListener("keydown",e=>{if([" ","ArrowLeft","ArrowRight"].includes(e.key))e.preventDefault();if(e.key===" "){if(state==="menu"||state==="gameover")resetMatch();else if(state==="paused")state="playing";else hit()}if(e.key.toLowerCase()==="p")state=state==="playing"?"paused":state==="paused"?"playing":state;if(state==="playing"){if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")px=Math.max(355,px-25);if(e.key==="ArrowRight"||e.key.toLowerCase()==="d")px=Math.min(545,px+25);if(e.key==="1")shotDir="LEFT";if(e.key==="2")shotDir="STRAIGHT";if(e.key==="3")shotDir="RIGHT"}});
+function stadium(){
+ ctx.fillStyle="#071626";ctx.fillRect(0,0,W,H);ctx.fillStyle="#163041";ctx.fillRect(0,55,W,75);
+ for(let row=0;row<3;row++)for(let x=25;x<880;x+=22)circle(x,65+row*19,4,["#d24b41","#ebbe41","#4191d2","#ddd"][Math.floor(x/22+row)%4]);
+ for(let x of [75,825]){line(x,30,x,100,"#aab9c3",5);box(x-25,20,50,12,"#ebebcd",4);circle(x,27,28,"rgba(255,245,190,.08)","#fff1be")}
+ ellipse(450,300,430,195,"#1e6939");ellipse(450,300,415,175,"#41914b","#41914b");
+ for(let y=150;y<460;y+=65){ctx.strokeStyle="#308041";ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(450,y,415,45,0,0,Math.PI);ctx.stroke()}
+ ellipse(450,300,430,195,"rgba(0,0,0,0)","#ffcd37",4);
+ box(325,125,250,330,C.pitch,8);box(335,135,230,310,"rgba(0,0,0,0)",6,"#d7b991");
+ line(340,180,560,180,"#fff",3);line(340,425,560,425,"#fff",3);
+ for(let x of [420,450,480])box(x,435,7,40,"#fff",2);line(400,435,500,435,"#fff",3)
+}
+function fielder(x,y){let cy=y+Math.sin(frame*.07+x)*3;line(x-4,cy+27,x-10,cy+43,"#19232d",6);line(x+4,cy+27,x+10,cy+43,"#19232d",6);box(x-11,cy+8,22,23,"#194ba5",5);line(x-9,cy+13,x-19,cy+28,C.skin,5);line(x+9,cy+13,x+19,cy+28,C.skin,5);circle(x,cy,10,C.skin);ctx.strokeStyle="#142346";ctx.lineWidth=5;ctx.beginPath();ctx.arc(x,cy,11,Math.PI,Math.PI*2);ctx.stroke()}
+function bowler(){let m=Math.sin(frame*.16)*7;line(440,185,431,211+m,"#fff",9);line(460,185,470,210-m,"#fff",9);ellipse(428,209+m,10,4,"#191e23");ellipse(472,209-m,10,4,"#191e23");box(433,148,34,42,C.red,7);line(450,151,450,186,C.gold,3);line(438,158,419,174+m,C.skin,8);line(462,158,481,139-m,C.skin,8);circle(450,133,15,C.skin);circle(450,133,15,"rgba(0,0,0,0)","#231914")}
+function batsman(){ellipse(px,436,31,6,"#5f4b37");box(px-19,402,15,31,"#ebebe1",5);box(px+4,402,15,31,"#ebebe1",5);line(px-12,432,px-23,437,"#1e232d",7);line(px+12,432,px+23,437,"#1e232d",7);box(px-23,357,46,52,"#1450b9",9);line(px,362,px,402,C.gold,3);line(px-17,370,px+9,382,C.skin,9);line(px+12,370,px+23,383,C.skin,8);circle(px,337,17,C.skin);ctx.strokeStyle="#142341";ctx.lineWidth=7;ctx.beginPath();ctx.arc(px,334,19,Math.PI,Math.PI*2);ctx.stroke();let a=swing>0?-1.15+(8-swing)*.3:.65;line(px+23,386,px+Math.cos(a)*72,380+Math.sin(a)*72,"#be7d37",15);line(px+23,386,px+Math.cos(a)*72,380+Math.sin(a)*72,"#e1af5f",3)}
+function ball(){line(bx,by-25,bx,by-10,"#ffaaaa",4);circle(bx,by,11,C.red);circle(bx,by,11,"rgba(0,0,0,0)","#fff")}
+function button(r,label,color){box(r.x,r.y+5,r.w,r.h,"#0f1919",13);box(r.x,r.y,r.w,r.h,color,13,"#fff");text(label, label.length>7?19:28,"#fff",r.x+r.w/2,r.y+r.h/2)}
+function scoreBoard(){box(18,9,864,72,"#05161e",14,"#416955");text("CRICKET CHAMPIONS",22,C.gold,35,30,false);text(score,42,"#fff",360,39);text("RUNS",16,"#b4cdbE",360,65);text(wickets+"/3",42,"#fff",510,39);text("WICKETS",16,"#b4cdbe",510,65);text(Math.floor(balls/6)+"."+(balls%6),42,"#fff",665,39);text("OVERS",16,"#b4cdbe",665,65);button(rects.pause,"Ⅱ","#284137")}
+function celebration(){for(let p of particles){p.x+=p.vx;p.y+=p.vy;p.vy+=.16;p.life--;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size)}particles=particles.filter(p=>p.life>0);if(celebrate>0){celebrate--;text(celebrateText,58,C.gold,450,235,true,"bold")}}
+function gameDraw(){stadium();fielder(115,250);fielder(780,250);fielder(150,400);fielder(750,400);bowler();batsman();ball();scoreBoard();button(rects.left,"‹","#2d5a96");button(rects.right,"›","#2d5a96");button(rects.hit,"HIT!","#af2d2d");for(let [r,l,d] of [[rects.dl,"LEFT","LEFT"],[rects.ds,"STRAIGHT","STRAIGHT"],[rects.dr,"RIGHT","RIGHT"]]){box(r.x,r.y,r.w,r.h,shotDir===d?C.gold:"#2d4b55",9,"#fff");text(l,18,shotDir===d?C.dark:"#fff",r.x+r.w/2,r.y+r.h/2)}text("TARGET: 30 RUNS",19,C.gold,450,485);text(message,26,C.gold,450,570);celebration()}
+function menuDraw(){stadium();box(100,145,700,330,"rgba(4,20,28,.94)",28,C.gold,3);text("WELCOME TO",30,"#fff",450,205);text("CRICKET CHAMPIONS",58,C.gold,450,260,true,"bold");text("2 OVER BATTING CHALLENGE",30,"#fff",450,315);text("Score 30 runs to win the match!",22,"#d2e1d7",450,350);button(rects.play,"PLAY MATCH","#b97d19");text("Move: A / D    Aim: 1 / 2 / 3    Hit: SPACE",19,"#fff",450,485)}
+function endDraw(){stadium();box(170,155,560,300,C.dark,25);text("MATCH OVER",55,C.gold,450,195);text(score>=target?"YOU WIN!":"YOU LOSE!",32,score>=target?"#50e678":C.red,450,245);text("FINAL SCORE: "+score,30,"#fff",450,290);text("WICKETS: "+wickets+"    OVERS: "+Math.floor(balls/6)+"."+(balls%6),26,"#fff",450,335);text("BEST SCORE: "+high,27,C.gold,450,380);text("TAP TO PLAY AGAIN",20,"#fff",450,425)}
+function tick(t){let dt=Math.min((t-last)/16.67||1,2);last=t;frame+=dt;
+ if(state==="playing"){if(swing>0)swing-=dt;if(ballState==="delivery"){by+=speed*dt;bx+=Math.sin(frame*.12)*2;if(by>440)miss()}else{bx+=svx*dt;by+=svy*dt;svy+=.25*dt;if(by<95||bx<20||bx>880){balls++;if(score>=target||balls>=12)finish();else resetBall()}}}
+ if(state==="menu")menuDraw();else if(state==="playing"||state==="paused"){gameDraw();if(state==="paused"){box(250,220,400,150,C.dark,20);text("PAUSED",55,C.gold,450,270);text("TAP OR PRESS P TO RESUME",20,"#fff",450,325)}}else endDraw();
+ requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+})();
+</script></body></html>
